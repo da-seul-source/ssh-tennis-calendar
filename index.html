@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<title>🎾 테니스 캘린더</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7.25' fill='%23D5E36B'/%3E%3Cpath d='M2.6 3.2C5.3 5 5.3 11 2.6 12.8M13.4 3.2C10.7 5 10.7 11 13.4 12.8' fill='none' stroke='%23fff' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E">
+<!-- 홈 화면에 추가할 때 쓰는 아이콘(테니스공이 꽉 찬 그림)·이름 -->
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="테니스 캘린더">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 폰트는 화면 그리기를 막지 않게 뒤에서 받는다 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap"></noscript>
+<style>
+  /* ── 색: 흰 바탕 + 파스텔 라임 포인트 ─────────────────────────
+     accent      채우는 색 (고른 날짜, 등록 버튼)
+     on          accent 위 글씨
+     accent-text 흰 바탕 위에 쓰는 라임 계열 글자색 (오늘, D-day)
+     tint        아주 연한 라임 바탕 (달력 칸 일정, 정산 완료) */
+  :root {
+    color-scheme: light;
+    --bg: #FFFFFF;
+    --soft: #F3F4F6;
+    --line: #E9EBEE;
+    --fg: #1F2329;
+    --fg2: #6B7280;
+    --fg3: #A9AFB8;
+    --accent: #CFE58A;
+    --on: #33420F;
+    --accent-text: #6A8A24;
+    --tint: #F2F8DF;
+    --tint-fg: #55731B;
+    --sun: #D4605A;
+    --sat: #5F7FA8;
+    --sans: "Noto Sans KR", -apple-system, "Apple SD Gothic Neo", system-ui, sans-serif;
+  }
+  /* 글자 위계 (굵기는 400·500·700만)
+     월 제목 20/700 > 날짜 제목 16/700 > 코트명 15/700 > 시간 13/500 > 유형 12/400 > 참석자·정산 11/500
+     여백 (4·8·12·16·24)
+     큰 덩어리 사이 24 / 덩어리 안 제목→내용, 카드↔카드 12 / 카드 안쪽 16 / 카드 안 줄 8 / 칩 사이 6
+     카드 밖 글줄은 좌우 4 들여쓰기 */
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { touch-action: manipulation; } /* 버튼을 빠르게 두 번 눌러도 화면이 확대되지 않게 */
+  html, body { margin: 0; background: var(--bg); }
+  body {
+    color: var(--fg); font-family: var(--sans); font-size: 13px; line-height: 1.45;
+    letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .wrap {
+    max-width: 560px; margin: 0 auto; display: grid; gap: 24px; align-content: start;
+    padding-top: calc(20px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .blk { display: grid; gap: 12px; }
+  .ball { width: 16px; height: 16px; display: block; flex: 0 0 auto; }
+
+  /* 상단 */
+  .top { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .brand { margin: 0; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .brand .ball { width: 20px; height: 20px; }
+  .sync { margin-left: auto; font-size: 11px; color: var(--fg3); }
+  .seg { display: flex; background: var(--soft); border-radius: 12px; padding: 3px; }
+  .seg button { flex: 1; border: 0; background: transparent; font-size: 13px; font-weight: 500; color: var(--fg2); padding: 8px 0; border-radius: 9px; }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--fg); font-weight: 700; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+
+  /* 월 */
+  .mrow { display: flex; align-items: center; gap: 8px; padding: 0 4px; }
+  .month { margin: 0 auto 0 0; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+  .month small { font-size: 13px; font-weight: 400; color: var(--fg3); margin-left: 6px; }
+  .nav { height: 32px; min-width: 32px; padding: 0 12px; display: grid; place-items: center; border: 0; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); font-size: 12px; font-weight: 500; color: var(--fg2); }
+
+  /* 달력 */
+  .cal { border-radius: 16px; padding: 12px 4px 4px; box-shadow: inset 0 0 0 1px var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .dow { font-size: 11px; font-weight: 500; color: var(--fg3); text-align: center; padding-bottom: 8px; }
+  .dow.su { color: var(--sun); } .dow.sa { color: var(--sat); }
+  .d {
+    min-height: 72px; padding: 4px 1px; display: grid; align-content: start; gap: 4px;
+    border: 0; border-top: 1px solid var(--line); background: none; text-align: left;
+  }
+  .d .n { justify-self: center; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .d.su .n { color: var(--sun); } .d.sa .n { color: var(--sat); }
+  .d.out .n { color: var(--fg3); opacity: .6; }
+  .d.today .n { color: var(--accent-text); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--accent-text); }
+  .d.sel .n { background: var(--accent); color: var(--on); font-weight: 700; box-shadow: none; }
+  /* 칸 안 일정: 시각 / 코트명 / 번호, 왼쪽 정렬, 같은 크기 */
+  .ec { display: grid; padding: 3px 0 3px 2px; border-radius: 5px; line-height: 1.2; background: var(--tint); color: var(--tint-fg); font-size: 8px; font-weight: 500; letter-spacing: -.05em; word-break: keep-all; overflow-wrap: anywhere; }
+  .ec { position: relative; }
+  .ec.lack::after { content: ""; position: absolute; top: 4px; right: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--sun); }
+  .ec.past { background: var(--soft); color: var(--fg3); }
+  .more { font-size: 9px; font-weight: 500; color: var(--fg2); padding-left: 2px; }
+
+  /* 날짜 묶음 + 일정 카드 */
+  .group { display: grid; gap: 12px; }
+  .gh { display: flex; align-items: baseline; gap: 8px; padding: 0 4px; }
+  .gh h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .gh em { font-style: normal; font-size: 12px; font-weight: 500; color: var(--accent-text); }
+  .group.past .gh h3, .group.past .gh em { color: var(--fg3); }
+  .list { display: grid; gap: 12px; }
+  .ev { border-radius: 16px; padding: 16px; display: grid; gap: 8px; box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+  .ev.past { opacity: .5; filter: grayscale(.8); }
+  .hd { display: grid; gap: 2px; }
+  .r1 { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+  .court { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; line-height: 22px; min-width: 0; }
+  .type { font-size: 12px; color: var(--fg3); white-space: nowrap; }
+  .stat { margin-left: auto; display: flex; align-items: center; }
+  .time { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .settle { border: 0; font-size: 11px; font-weight: 500; line-height: 16px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: transparent; }
+  .settle.no { color: var(--sun); box-shadow: inset 0 0 0 1px currentColor; }
+  .settle.ok { color: var(--tint-fg); background: var(--tint); }
+  .settle.sum { color: var(--fg2); background: var(--soft); cursor: default; }
+  .ppl { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pp { font-size: 11px; font-weight: 500; line-height: 16px; padding: 2px 8px; border-radius: 999px; background: var(--soft); white-space: nowrap; border: 0; }
+  .pp.open { background: transparent; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg3); }
+  button.pp { background: transparent; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg2); }
+  button.pp.paid { background: var(--tint); color: var(--tint-fg); box-shadow: none; }
+  button.pp.paid::before { content: "✓ "; font-weight: 700; }
+  .empty { background: var(--soft); border-radius: 16px; padding: 24px 16px; text-align: center; color: var(--fg2); }
+  .pastbtn { justify-self: center; border: 0; background: var(--soft); color: var(--fg2); font-size: 12px; font-weight: 500; padding: 8px 16px; border-radius: 999px; }
+
+  .fab {
+    position: fixed; z-index: 20; border: 0; height: 52px; padding: 0 22px; border-radius: 999px;
+    right: max(16px, calc(env(safe-area-inset-right, 0px) + 16px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    background: var(--accent); color: var(--on); font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px;
+    box-shadow: 0 10px 24px -10px rgba(106, 138, 36, .55);
+  }
+  .fab span { font-size: 20px; font-weight: 400; line-height: 1; }
+  @media (min-width: 600px) { .fab { right: calc(50% - 264px); } }
+
+  .toast {
+    position: fixed; z-index: 30; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100% - 32px); background: var(--fg); color: #fff; font-size: 12px; padding: 8px 14px; border-radius: 999px;
+  }
+  .toast.warn { background: var(--sun); }
+
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+  /* ── 등록·수정 시트 ── */
+  dialog { padding: 0; border: 0; background: transparent; width: min(520px, calc(100vw - 20px)); max-width: none; max-height: none; overflow: visible; color: var(--fg); }
+  dialog::backdrop { background: rgba(31, 35, 41, .35); }
+  .sheet {
+    display: flex; flex-direction: column; background: #fff; border-radius: 20px; overflow: hidden;
+    max-height: calc(100vh - 24px); max-height: calc(var(--app-h, 100dvh) - 24px);
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.35);
+  }
+  .sh-head { display: flex; align-items: center; gap: 8px; padding: 16px 16px 12px; }
+  .sh-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .x { margin-left: auto; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--soft); color: var(--fg2); font-size: 14px; display: grid; place-items: center; }
+  .sh-body { padding: 4px 16px 16px; overflow-y: auto; display: grid; gap: 16px; }
+  .sh-foot { display: flex; align-items: center; gap: 8px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+  .sh-foot .sp { flex: 1; }
+  .btn { border: 0; height: 40px; padding: 0 16px; border-radius: 999px; font-size: 13px; font-weight: 500; background: var(--soft); color: var(--fg2); }
+  .btn.primary { background: var(--accent); color: var(--on); font-weight: 700; padding: 0 22px; }
+  .btn.danger { background: transparent; color: var(--sun); padding: 0 8px; }
+
+  .fld { display: grid; gap: 6px; min-width: 0; }
+  .fld > label:not(.switch-row), .lbl { font-size: 12px; font-weight: 500; color: var(--fg2); padding-left: 4px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row.court-row { grid-template-columns: 1fr 96px; }
+  input[type="text"], input[type="date"], input[type="time"], textarea {
+    font: inherit; font-size: 15px; color: var(--fg); width: 100%; min-width: 0; min-height: 42px;
+    padding: 9px 12px; border: 0; border-radius: 12px; background: var(--soft);
+    -webkit-appearance: none; appearance: none;
+  }
+  input::-webkit-date-and-time-value { text-align: left; }
+  input::placeholder, textarea::placeholder { color: var(--fg3); }
+  textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt { border: 0; height: 32px; padding: 0 14px; border-radius: 999px; background: var(--soft); color: var(--fg2); font-size: 13px; font-weight: 500; }
+  .opt[aria-pressed="true"] { background: var(--accent); color: var(--on); font-weight: 700; }
+
+  .stepper { display: flex; align-items: center; gap: 8px; }
+  .stepper button { width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--soft); font-size: 18px; color: var(--fg2); display: grid; place-items: center; }
+  .stepper output { min-width: 56px; text-align: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .person { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 500; padding: 4px 4px 4px 12px; border-radius: 999px; background: var(--tint); color: var(--tint-fg); }
+  .person button { width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: var(--accent-text); font-size: 13px; display: grid; place-items: center; }
+  .addrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+
+  .switch-row { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--soft); cursor: pointer; }
+  .switch-row .t { display: grid; gap: 2px; margin-right: auto; }
+  .switch-row b { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .switch-row small { font-size: 11px; color: var(--fg2); }
+  .switch { -webkit-appearance: none; appearance: none; flex: 0 0 auto; width: 44px; height: 26px; border-radius: 999px; background: #D9DCE1; position: relative; cursor: pointer; margin: 0; transition: background .15s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .switch:checked { background: var(--accent-text); }
+  .switch:checked::after { transform: translateX(18px); }
+  .err { font-size: 12px; color: var(--sun); }
+  .hint { font-size: 11px; color: var(--fg3); padding-left: 4px; }
+  .opt.paid[aria-pressed="true"] { background: var(--tint); color: var(--tint-fg); }
+  .opt.paid[aria-pressed="true"]::before { content: "✓ "; }
+
+  /* ── 금액·성별 정원 ── */
+  .money { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--fg2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .money.get { color: var(--tint-fg); }
+  .r2 { display: flex; align-items: center; gap: 8px; }
+  .club { font-size: 11px; font-weight: 500; line-height: 16px; padding: 1px 6px; border-radius: 5px; background: var(--tint); color: var(--tint-fg); white-space: nowrap; }
+  .v-head { display: grid; gap: 4px; min-width: 0; }
+  .v-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .v-tags:empty { display: none; }
+  .kvs { display: grid; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .kv:first-child { padding-top: 0; }
+  .kv span { color: var(--fg2); flex: 0 0 auto; }
+  .kv b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+  .v-sec { display: grid; gap: 8px; }
+  .v-memo { font-size: 13px; color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: 12px; background: var(--soft); }
+  .mypay { border: 0; height: 44px; border-radius: 12px; font-size: 14px; font-weight: 500; }
+  .mypay.no { background: transparent; color: var(--sun); box-shadow: inset 0 0 0 1px currentColor; }
+  .mypay.ok { background: var(--tint); color: var(--tint-fg); }
+  .short { font-size: 11px; font-weight: 500; line-height: 16px; padding: 1px 6px; border-radius: 999px; color: var(--sun); box-shadow: inset 0 0 0 1px currentColor; white-space: nowrap; }
+  .person.open { background: transparent; color: var(--fg3); box-shadow: inset 0 0 0 1px var(--line); padding: 4px 12px; font-weight: 400; }
+  .memo { font-size: 12px; color: var(--fg2); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .caps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .capbox { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 12px; background: var(--soft); }
+  .capbox > span { font-size: 13px; color: var(--fg2); }
+  .capbox .stepper { gap: 2px; }
+  .capbox .stepper button { width: 32px; height: 32px; background: #fff; }
+  .capbox .stepper output { min-width: 36px; font-size: 14px; }
+  .person .g { border: 0; background: #fff; height: 22px; min-width: 22px; padding: 0 6px; border-radius: 999px; font-size: 11px; color: var(--tint-fg); margin-left: 6px; }
+  .opt .ball { display: inline-block; vertical-align: -3px; margin-right: 4px; }
+  .addrow { grid-template-columns: 1fr auto auto; }
+  .gseg { display: flex; background: var(--soft); border-radius: 12px; padding: 3px; }
+  .gseg button { border: 0; background: transparent; width: 38px; border-radius: 9px; font-size: 13px; color: var(--fg2); }
+  .gseg button[aria-pressed="true"] { background: #fff; color: var(--fg); font-weight: 700; box-shadow: 0 1px 2px rgba(0,0,0,.1); }
+  input[inputmode="numeric"] { font-variant-numeric: tabular-nums; }
+  .sub { display: grid; gap: 6px; }
+  .ledger { display: grid; gap: 4px; padding: 12px; border-radius: 12px; background: var(--soft); font-size: 13px; }
+  .ledger .ln { display: flex; justify-content: space-between; color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .ledger .ln.total { color: var(--fg); font-weight: 700; padding-top: 6px; margin-top: 2px; border-top: 1px dashed #D9DCE1; }
+  .ledger .ln.solo { border-top: 0; margin-top: 0; padding-top: 0; }
+  .ledger .note { font-size: 11px; color: var(--fg3); }
+  .payrows { display: grid; gap: 6px; }
+  .payrow { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--line); }
+  .payrow .nm { font-size: 13px; font-weight: 500; margin-right: auto; }
+  .payrow .amt { font-size: 12px; color: var(--fg2); font-variant-numeric: tabular-nums; }
+  .payrow button { border: 0; height: 28px; padding: 0 12px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--soft); color: var(--fg2); }
+  .payrow button[aria-pressed="true"] { background: var(--tint); color: var(--tint-fg); }
+  .payrow button[aria-pressed="true"]::before { content: "✓ "; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="blk">
+    <div class="top">
+      <h1 class="brand"><svg class="ball" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7.25" fill="#D5E36B"/><path d="M2.6 3.2C5.3 5 5.3 11 2.6 12.8M13.4 3.2C10.7 5 10.7 11 13.4 12.8" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round"/></svg>테니스 캘린더</h1>
+      <span class="sync" id="sync" hidden>동기화 중…</span>
+    </div>
+    <div class="seg" role="group" aria-label="보기">
+      <button type="button" data-mode="cal" aria-pressed="true">달력</button>
+      <button type="button" data-mode="list" aria-pressed="false">다가오는 일정</button>
+    </div>
+  </div>
+  <div id="view" style="display: contents"></div>
+</div>
+
+<button type="button" class="fab" id="fab"><span aria-hidden="true">+</span>일정 등록</button>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<!-- ─────────── 일정 상세 (읽기 전용) ─────────── -->
+<dialog id="dlg-view" aria-labelledby="v-title">
+  <div class="sheet">
+    <div class="sh-head">
+      <div class="v-head">
+        <h2 id="v-title" tabindex="-1" autofocus style="outline: none">일정</h2>
+        <div class="v-tags" id="v-tags"></div>
+      </div>
+      <button type="button" class="x" data-vclose aria-label="닫기">✕</button>
+    </div>
+    <div class="sh-body" id="v-body"></div>
+    <div class="sh-foot">
+      <span class="sp"></span>
+      <button type="button" class="btn" data-vclose>닫기</button>
+      <button type="button" class="btn primary" id="v-edit">수정</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ─────────── 일정 등록·수정 ─────────── -->
+<dialog id="dlg" aria-labelledby="f-title">
+  <form class="sheet" id="form" novalidate>
+    <div class="sh-head">
+      <h2 id="f-title" tabindex="-1" autofocus style="outline: none">일정 등록</h2>
+      <button type="button" class="x" data-close aria-label="닫기">✕</button>
+    </div>
+    <div class="sh-body">
+      <div class="fld">
+        <span class="lbl">종류</span>
+        <div class="seg" id="f-kind" role="group" aria-label="일정 종류">
+          <button type="button" data-kind="court" aria-pressed="true">코트</button>
+          <button type="button" data-kind="club" aria-pressed="false">행사</button>
+        </div>
+        <div class="chips" id="f-tags" hidden></div>
+      </div>
+      <div class="row court-row">
+        <div class="fld"><label for="f-place">테니스장</label><input id="f-place" type="text" placeholder="올림픽공원" maxlength="40" autocomplete="off"></div>
+        <div class="fld"><label for="f-court">코트 번호</label><input id="f-court" type="text" placeholder="3번" maxlength="12" autocomplete="off"></div>
+      </div>
+      <div class="fld"><label for="f-date">날짜</label><input id="f-date" type="date"></div>
+      <div class="row">
+        <div class="fld"><label for="f-start">시작</label><input id="f-start" type="time" value="20:00"></div>
+        <div class="fld"><label for="f-end">종료</label><input id="f-end" type="time" value="22:00"></div>
+      </div>
+      <div class="fld">
+        <span class="lbl">유형</span>
+        <div class="chips" id="f-types"></div>
+      </div>
+      <div class="fld">
+        <span class="lbl">인원</span>
+        <div class="caps">
+          <div class="capbox"><span>여자</span><div class="stepper"><button type="button" data-cap="F-1" aria-label="여자 줄이기">−</button><output id="f-capf">0</output><button type="button" data-cap="F1" aria-label="여자 늘리기">+</button></div></div>
+          <div class="capbox"><span>남자</span><div class="stepper"><button type="button" data-cap="M-1" aria-label="남자 줄이기">−</button><output id="f-capm">0</output><button type="button" data-cap="M1" aria-label="남자 늘리기">+</button></div></div>
+        </div>
+        <small class="hint">둘 다 0이면 제한 없음. 남는 자리는 카드에 빈자리로 보여요.</small>
+      </div>
+      <div class="fld">
+        <span class="lbl">참석자</span>
+        <div class="addrow">
+          <input id="f-person" type="text" placeholder="이름 추가" maxlength="20" autocomplete="off" enterkeyhint="done">
+          <div class="gseg" role="group" aria-label="성별">
+            <button type="button" data-g="F" aria-pressed="true">여</button>
+            <button type="button" data-g="M" aria-pressed="false">남</button>
+          </div>
+          <button type="button" class="btn" id="f-add">추가</button>
+        </div>
+        <div class="people" id="f-people"></div>
+        <small class="hint" id="f-people-hint">여/남을 누르면 바뀌어요.</small>
+      </div>
+
+      <div class="fld">
+        <span class="lbl" id="f-host-lbl">예약자</span>
+        <div class="chips" id="f-host"></div>
+        <input id="f-host-text" type="text" placeholder="클럽이나 주최한 사람 이름" maxlength="30" autocomplete="off" hidden>
+        <small class="hint" id="f-host-hint">나를 고르면 내 코트예요. 참석자별로 정산 받았는지 체크해요.</small>
+      </div>
+      <div class="fld" id="f-owner-fld">
+        <span class="lbl">캔볼 가져오는 사람</span>
+        <div class="chips" id="f-owner"></div>
+      </div>
+
+      <div class="fld" id="f-due-box" hidden><label for="f-due">내가 낼 돈 (원)</label><input id="f-due" type="text" inputmode="numeric" placeholder="6000" maxlength="9" autocomplete="off"></div>
+      <div class="fld" id="f-entry-box" hidden><label for="f-entry">참가비 (1인, 원)</label><input id="f-entry" type="text" inputmode="numeric" placeholder="30000" maxlength="9" autocomplete="off"></div>
+      <div class="row" id="f-split-box">
+        <div class="fld"><label for="f-fee">코트비 (원)</label><input id="f-fee" type="text" inputmode="numeric" placeholder="20000" maxlength="9" autocomplete="off"></div>
+        <div class="fld"><label for="f-bprice">캔볼 값 (원)</label><input id="f-bprice" type="text" inputmode="numeric" placeholder="3500" maxlength="7" autocomplete="off"></div>
+      </div>
+
+      <div class="fld" id="f-settle">
+        <span class="lbl">정산</span>
+        <div class="ledger" id="f-ledger"></div>
+        <div class="payrows" id="f-payrows"></div>
+        <label class="switch-row" for="f-mypaid" id="f-mypaid-row">
+          <span class="t"><b>내 정산 완료</b><small id="f-mypaid-sub">예약자에게 내 몫을 보냈으면 켜요.</small></span>
+          <input type="checkbox" class="switch" id="f-mypaid">
+        </label>
+      </div>
+
+      <div class="fld"><label for="f-memo">메모</label><textarea id="f-memo" placeholder="주차, 준비물 등" maxlength="400"></textarea></div>
+      <p class="err" id="f-err" hidden></p>
+    </div>
+    <div class="sh-foot">
+      <button type="button" class="btn danger" id="f-del" hidden>삭제</button>
+      <span class="sp"></span>
+      <button type="button" class="btn" data-close>취소</button>
+      <button type="submit" class="btn primary" id="f-submit">등록</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+import {
+  initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove
+} from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+
+/* ── Firebase 연결 정보 ─────────────────────────────────────────
+   비밀번호가 아니라 "어느 프로젝트인지" 적는 주소라 공개돼도 괜찮다.
+   누가 뭘 할 수 있는지는 Firestore 보안 규칙(firestore.rules)이 정한다. */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+/* 캘린더 주인. 새 일정에 참석자로 먼저 들어가고, 내 코트 정산 대상에서 빠진다 */
+const ME = "신선화";
+const ME_GENDER = "F";
+
+const app = initializeApp(firebaseConfig);
+let db;
+try {
+  // 브라우저에 데이터를 남겨 두어 다음에 열 때 즉시 그리고, 오프라인에서도 보인다
+  db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch (e) {
+  db = getFirestore(app);
+}
+const EVENTS = collection(db, "events");
+
+/* ---------- 상태 ---------- */
+const DOW = ["일", "월", "화", "수", "목", "금", "토"];
+const TYPES = ["혼복", "여복", "남복", "단식", "랠리"];
+const CLUB_TAGS = ["클럽", "교류전", "대회"];   // 행사 꼬리표 (내부 값은 kind: "club")
+const TYPE_PRESET = { "혼복": [2, 2], "여복": [4, 0], "남복": [0, 4] };   // 고르면 여/남 인원을 채워 준다
+let events = [];
+/* '오늘'은 폰 설정과 상관없이 한국 시간으로 */
+const KST = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" });
+let selDate = todayKey();
+let view = { y: +selDate.slice(0, 4), m: +selDate.slice(5, 7) - 1 };
+let mode = "cal";
+let showPast = false;
+let viewId = null;      // 열려 있는 상세 보기
+
+/* ---------- 도우미 ---------- */
+function pad(n) { return (n < 10 ? "0" : "") + n; }
+function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function parse(key) { const p = key.split("-"); return new Date(+p[0], +p[1] - 1, +p[2], 12); }
+function todayKey() { return KST.format(new Date()); }
+function dayDiff(key) { return Math.round((parse(key) - parse(todayKey())) / 864e5); }
+function rel(key, withPast) {
+  const n = dayDiff(key);
+  if (n === 0) return "오늘";
+  if (n === 1) return "내일";
+  if (n > 0) return "D-" + n;
+  return withPast ? (-n) + "일 전" : "";
+}
+function dateTitle(key) { const d = parse(key); return (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + DOW[d.getDay()] + "요일"; }
+function hour(t) { const h = parseInt(t, 10); return isFinite(h) ? h + "시" : ""; }
+function num(v) { const n = parseInt(String(v == null ? "" : v).replace(/[^0-9]/g, ""), 10); return isFinite(n) && n > 0 ? n : 0; }
+function won(n) { return Math.round(n).toLocaleString("ko-KR") + "원"; }
+function str(v) { return String(v == null ? "" : v).trim(); }
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function uid() { return (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).slice(0, 16); }
+function el(id) { return document.getElementById(id); }
+function ballSvg(label) {
+  return '<svg class="ball" viewBox="0 0 16 16"' + (label ? ' role="img" aria-label="' + label + '"><title>' + label + '</title>' : ' aria-hidden="true">') +
+    '<circle cx="8" cy="8" r="7.25" fill="#D5E36B"/><path d="M2.6 3.2C5.3 5 5.3 11 2.6 12.8M13.4 3.2C10.7 5 10.7 11 13.4 12.8" fill="none" stroke="#FFFFFF" stroke-width="1.3" stroke-linecap="round"/></svg>';
+}
+
+let toastTimer = null;
+function toast(msg, warn) {
+  const t = el("toast");
+  t.textContent = msg;
+  t.className = "toast" + (warn ? " warn" : "");
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, warn ? 4000 : 2200);
+}
+function errText(e) { return (e && (e.message || String(e))) || "잠시 후 다시 시도하세요."; }
+
+/* 신청 순서대로 정렬 (개인 캘린더라 대기 없이 모두 참석) */
+function ordered(list) { return list.slice().sort((a, b) => (a.at || 0) - (b.at || 0)); }
+
+/* 정산: (코트비 + 캔볼 값) ÷ 확정 인원, 10원 단위 올림.
+   캔볼 가져온 사람은 이미 낸 캔볼 값을 빼고 내며, 음수면 돌려받는다. */
+function settleOf(courtFee, ballPrice, ballOwner, names, entryFee) {
+  if (entryFee) return { total: entryFee * names.length, n: names.length, per: entryFee, due: () => entryFee, entry: true };
+  const total = courtFee + ballPrice, n = names.length;
+  const per = n ? Math.ceil(total / n / 10) * 10 : 0;
+  const due = name => per - (ballPrice && name === ballOwner ? ballPrice : 0);
+  return { total, n, per, due };
+}
+
+/* Firestore 문서 → 화면용 객체 */
+function normalize(id, d) {
+  d = d || {};
+  const parts = (Array.isArray(d.participants) ? d.participants : [])
+    .map(p => typeof p === "string" ? { id: uid(), name: p, gender: "", at: 0 } : p)
+    .filter(p => p && str(p.name))
+    .map(p => ({ id: p.id || uid(), name: str(p.name), gender: p.gender === "F" || p.gender === "M" ? p.gender : "", at: Number(p.at) || 0 }));
+  const capF = num(d.capF), capM = num(d.capM);
+  const ball = typeof d.ball === "boolean" ? d.ball : str(d.ballOwner) === ME;
+  const ev = {
+    id: id,
+    date: str(d.date), start: str(d.start), end: str(d.end),
+    place: str(d.place), court: str(d.court), type: str(d.gameType),
+    capF: capF, capM: capM, memo: str(d.memo),
+    courtFee: num(d.courtFee), ballPrice: num(d.ballPrice),
+    kind: d.kind === "club" || d.feeMode === "entry" ? "club" : "court",
+    clubTag: str(d.clubTag) || (str(d.gameType) === "교류전" ? "교류전" : ""),
+    entryFee: num(d.entryFee),
+    myDue: num(d.myDue),   // 남 코트: 내가 낼 돈 (계산 없이 직접 적는다)
+    ball: ball, ballOwner: ball ? ME : str(d.ballOwner),
+    host: str(d.host),
+    participants: parts,
+    ins: ordered(parts),
+    mine: typeof d.mine === "boolean" ? d.mine : str(d.host) === ME,
+    paid: Array.isArray(d.paid) ? d.paid.map(str) : [],
+    myPaid: !!d.myPaid,
+    createdAt: Number(d.createdAt) || 0
+  };
+  ev.names = ev.ins.map(p => p.name);
+  return ev;
+}
+/* 정원을 정해 뒀는데 아직 다 안 찼는지 */
+function isShort(ev) { const cap = ev.capF + ev.capM; return cap > 0 && ev.names.length < cap; }
+function findEvent(id) { return events.find(e => e.id === id) || null; }
+function byDate(key) { return events.filter(e => e.date === key); }
+
+/* ---------- Firestore 구독: 개인 캘린더라 전체를 한 번에 받는다 ---------- */
+onSnapshot(EVENTS, { includeMetadataChanges: true }, snap => {
+  events = snap.docs.map(d => normalize(d.id, d.data()))
+    .sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  el("sync").hidden = !(snap.metadata.hasPendingWrites);
+  render();
+  if (viewId) renderDetail();
+}, err => toast("일정을 불러오지 못했어요. " + errText(err), true));
+
+/* ---------- 그리기 ---------- */
+function card(ev) {
+  const past = ev.date < todayKey();
+  const others = ev.names.filter(n => n !== ME);
+  let settle = "", ppl = "";
+  if (ev.mine) {
+    // 내 코트: 참석자 칩을 눌러 정산 받음 표시
+    const got = others.filter(n => ev.paid.indexOf(n) >= 0).length;
+    // 정산할 사람이 없으면(혼자거나 아직 참석자 없음) 정산 완료로 본다
+    if (!others.length) settle = '<span class="settle ok">✓ 정산 완료</span>';
+    else {
+      settle = got === others.length
+        ? '<span class="settle ok">✓ 정산 완료</span>'
+        : '<span class="settle sum">정산 ' + got + '/' + others.length + '</span>';
+    }
+    ppl = ev.names.map(n => {
+      if (n === ME) return '<span class="pp">' + esc(n) + '</span>';
+      const ok = ev.paid.indexOf(n) >= 0;
+      return '<button type="button" class="pp' + (ok ? " paid" : "") + '" data-pay="' + esc(n) + '" aria-pressed="' + ok + '" aria-label="' + esc(n) + ' 정산 ' + (ok ? "받음" : "안 받음") + '">' + esc(n) + '</button>';
+    }).join("");
+  } else {
+    // 남 코트: 내가 정산했는지 버튼 하나
+    settle = '<button type="button" class="settle ' + (ev.myPaid ? "ok" : "no") + '" data-mypay>' + (ev.myPaid ? "✓ 정산 완료" : "정산 전") + '</button>';
+    ppl = ev.names.map(n => '<span class="pp">' + esc(n) + '</span>').join("");
+  }
+  const cap = ev.capF + ev.capM;
+  const left = cap ? Math.max(0, cap - ev.names.length) : 0;
+  if (!past) for (let i = 0; i < left; i++) ppl += '<span class="pp open">빈자리</span>';
+
+  // 금액: 내 코트면 1인 금액, 남 코트면 내가 낼 몫 (캔볼 가져가면 그만큼 빼고)
+  let money = "";
+  const s = settleOf(ev.courtFee, ev.ballPrice, ev.ballOwner, ev.names, ev.kind === "club" ? ev.entryFee : 0);
+  if (ev.kind !== "club" && !ev.mine && ev.myDue) money = '<span class="money">내 몫 ' + won(ev.myDue) + '</span>';
+  else if (ev.kind === "club") { if (ev.entryFee) money = '<span class="money">참가비 ' + won(ev.entryFee) + '</span>'; }
+  else if (ev.mine && s.total && !s.n) money = '<span class="money">코트비 ' + won(s.total) + '</span>';
+  else if (s.total && s.n) {
+    if (ev.mine) money = '<span class="money">' + (s.n > 1 ? "1인 " + won(s.per) : "코트비 " + won(s.total)) + '</span>';
+    else if (ev.names.indexOf(ME) >= 0) {
+      const due = s.due(ME);
+      money = due < 0 ? '<span class="money get">받을 돈 ' + won(-due) + '</span>' : '<span class="money">내 몫 ' + won(due) + '</span>';
+    }
+  }
+
+  const title = (ev.place || "장소 미정") + (ev.court ? " " + ev.court : "");
+  return '<article class="ev' + (past ? " past" : "") + '" data-id="' + esc(ev.id) + '" tabindex="0" aria-label="' + esc(title) + ' 일정 수정">' +
+    '<div class="hd"><div class="r1"><span class="court">' + esc(title) + '</span>' +
+    (ev.kind === "club" ? '<span class="club">' + esc(ev.clubTag || "행사") + '</span>' : '') +
+    (ev.type && ev.type !== "교류전" ? '<span class="type">' + esc(ev.type) + '</span>' : '') +
+    (ev.ball ? ballSvg("내가 캔볼 챙김") : '') +
+    (!past && left > 0 ? '<span class="short">' + left + '명 부족</span>' : '') +
+    '<span class="stat">' + settle + '</span></div>' +
+    '<div class="r2"><span class="time">' + esc(ev.start || "--:--") + ' – ' + esc(ev.end || "--:--") + '</span>' + money + '</div></div>' +
+    (ppl ? '<div class="ppl">' + ppl + '</div>' : '') +
+    (ev.memo ? '<div class="memo">' + esc(ev.memo) + '</div>' : '') +
+    '</article>';
+}
+
+function calendarHtml() {
+  const first = new Date(view.y, view.m, 1);
+  const start = new Date(view.y, view.m, 1 - first.getDay());
+  const days = new Date(view.y, view.m + 1, 0).getDate();
+  const cells = Math.ceil((first.getDay() + days) / 7) * 7;
+  const tk = todayKey();
+  let g = DOW.map((w, i) => '<div class="dow' + (i === 0 ? " su" : i === 6 ? " sa" : "") + '">' + w + '</div>').join("");
+  for (let i = 0; i < cells; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const key = ymd(d), out = d.getMonth() !== view.m, w = d.getDay();
+    const cls = "d" + (w === 0 ? " su" : w === 6 ? " sa" : "") + (out ? " out" : "") + (key === tk ? " today" : "") + (key === selDate ? " sel" : "");
+    const es = byDate(key);
+    let chips = es.slice(0, 2).map(ev =>
+      '<span class="ec' + (key < tk ? " past" : isShort(ev) ? " lack" : "") + '" data-ev="' + esc(ev.id) + '"><span>' + esc(hour(ev.start)) + '</span><span>' + esc(ev.place) + (ev.court ? ' ' + esc(ev.court) : '') + '</span></span>').join("");
+    if (es.length > 2) chips += '<span class="more">+' + (es.length - 2) + '개</span>';
+    g += '<button type="button" class="' + cls + '" data-day="' + key + '" aria-label="' + dateTitle(key) + (es.length ? ", 일정 " + es.length + "개" : "") + '"><span class="n">' + d.getDate() + '</span>' + chips + '</button>';
+  }
+  const evs = byDate(selDate), lab = rel(selDate, false);
+  return '<div class="blk"><div class="mrow"><h2 class="month">' + (view.m + 1) + '월<small>' + view.y + '</small></h2>' +
+      '<button type="button" class="nav" data-nav="-1" aria-label="이전 달">‹</button>' +
+      '<button type="button" class="nav" data-nav="0">오늘</button>' +
+      '<button type="button" class="nav" data-nav="1" aria-label="다음 달">›</button></div>' +
+    '<div class="cal"><div class="grid">' + g + '</div></div></div>' +
+    '<section class="group' + (selDate < tk ? " past" : "") + '"><div class="gh"><h3>' + dateTitle(selDate) + '</h3>' + (lab ? '<em>' + lab + '</em>' : '') + '</div>' +
+    '<div class="list">' + (evs.length ? evs.map(card).join("")
+      : '<div class="empty">이 날은 일정이 없어요.<br>오른쪽 아래 일정 등록으로 추가하세요.</div>') + '</div></section>';
+}
+
+function groupsHtml(list, past) {
+  const keys = [];
+  list.forEach(e => { if (keys.indexOf(e.date) < 0) keys.push(e.date); });
+  return keys.map(k =>
+    '<section class="group' + (past ? " past" : "") + '"><div class="gh"><h3>' + dateTitle(k) + '</h3><em>' + rel(k, true) + '</em></div>' +
+    '<div class="list">' + list.filter(e => e.date === k).map(card).join("") + '</div></section>').join("");
+}
+function listHtml() {
+  const tk = todayKey();
+  const up = events.filter(e => e.date >= tk);
+  const past = events.filter(e => e.date < tk).reverse();
+  let h = up.length ? groupsHtml(up, false) : '<div class="empty">다가오는 일정이 없어요.<br>오른쪽 아래 일정 등록으로 추가하세요.</div>';
+  if (past.length) {
+    h += '<button type="button" class="pastbtn" data-past>' + (showPast ? "지난 일정 접기" : "지난 일정 " + past.length + "개 보기") + '</button>';
+    if (showPast) h += groupsHtml(past, true);
+  }
+  return h;
+}
+
+function render() {
+  document.querySelectorAll(".seg [data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+  el("view").innerHTML = mode === "cal" ? calendarHtml() : listHtml();
+}
+
+/* ---------- 화면 조작 ---------- */
+document.querySelector(".seg").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]");
+  if (!b) return;
+  mode = b.dataset.mode;
+  render();
+  window.scrollTo(0, 0);
+});
+
+el("view").addEventListener("click", e => {
+  const t = e.target;
+  const navB = t.closest("[data-nav]");
+  if (navB) {
+    const n = +navB.dataset.nav;
+    if (n === 0) { selDate = todayKey(); view = { y: +selDate.slice(0, 4), m: +selDate.slice(5, 7) - 1 }; }
+    else {
+      view.m += n;
+      if (view.m < 0) { view.m = 11; view.y--; }
+      if (view.m > 11) { view.m = 0; view.y++; }
+    }
+    render();
+    return;
+  }
+  // 달력 칸 안의 일정을 누르면 그 날을 고르고 바로 상세(수정) 화면을 연다
+  const evChip = t.closest("[data-ev]");
+  if (evChip) {
+    const ev = findEvent(evChip.dataset.ev);
+    if (ev) { selDate = ev.date; render(); openView(ev); }
+    return;
+  }
+  const day = t.closest("[data-day]");
+  if (day) {
+    selDate = day.dataset.day;
+    const d = parse(selDate);
+    if (d.getMonth() !== view.m || d.getFullYear() !== view.y) view = { y: d.getFullYear(), m: d.getMonth() };
+    render();
+    return;
+  }
+  if (t.closest("[data-past]")) { showPast = !showPast; render(); return; }
+
+  const art = t.closest("[data-id]");
+  if (!art) return;
+  const ev = findEvent(art.dataset.id);
+  if (!ev) return;
+  const pay = t.closest("[data-pay]");
+  if (pay) { togglePaid(ev, pay.dataset.pay); return; }
+  if (t.closest("[data-mypay]")) { toggleMyPaid(ev); return; }
+  openView(ev);
+});
+function togglePaid(ev, name) {
+  const has = ev.paid.indexOf(name) >= 0;
+  updateDoc(doc(EVENTS, ev.id), { paid: has ? arrayRemove(name) : arrayUnion(name) })
+    .catch(err => toast("저장하지 못했어요. " + errText(err), true));
+}
+function toggleMyPaid(ev) {
+  updateDoc(doc(EVENTS, ev.id), { myPaid: !ev.myPaid })
+    .catch(err => toast("저장하지 못했어요. " + errText(err), true));
+}
+el("view").addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-id]")) {
+    e.preventDefault();
+    const ev = findEvent(e.target.dataset.id);
+    if (ev) openView(ev);
+  }
+});
+
+el("fab").addEventListener("click", () => openForm(selDate));
+
+/* ---------- 상세 보기 (읽기 전용, 정산 체크만 가능) ---------- */
+function openView(ev) {
+  viewId = ev.id;
+  renderDetail();
+  el("dlg-view").showModal();
+}
+function renderDetail() {
+  const ev = findEvent(viewId);
+  if (!ev) { if (el("dlg-view").open) { el("dlg-view").close(); toast("이 일정은 삭제됐어요.", true); } return; }
+  const club = ev.kind === "club", past = ev.date < todayKey();
+  el("v-title").textContent = (ev.place || "장소 미정") + (ev.court ? " " + ev.court : "");
+  el("v-tags").innerHTML = (club ? '<span class="club">' + esc(ev.clubTag || "행사") + '</span>' : '') +
+    (ev.type && ev.type !== "교류전" ? '<span class="type">' + esc(ev.type) + '</span>' : '') +
+    (ev.ball ? ballSvg("내가 캔볼 챙김") : '');
+
+  const who = n => n === ME ? "나" : esc(n || "") || '<span style="color: var(--fg3)">미정</span>';
+  const cap = ev.capF + ev.capM;
+  let kv = '<div class="kv"><span>일시</span><b>' + dateTitle(ev.date) + ' ' + esc(ev.start || "--:--") + ' – ' + esc(ev.end || "--:--") + '</b></div>' +
+    '<div class="kv"><span>' + (club ? "주최" : "예약자") + '</span><b>' + who(ev.host) + '</b></div>' +
+    (club ? '' : '<div class="kv"><span>캔볼</span><b>' + who(ev.ballOwner) + '</b></div>') +
+    '<div class="kv"><span>인원</span><b>' + (cap ? "여 " + ev.capF + ", 남 " + ev.capM : "제한 없음") + '</b></div>';
+
+  // 참석자 + 빈자리
+  const left = cap ? Math.max(0, cap - ev.names.length) : 0;
+  let ppl = ev.names.map(n => '<span class="pp">' + esc(n) + '</span>').join("");
+  if (!past) ppl += '<span class="pp open">빈자리</span>'.repeat(left);
+
+  // 비용·정산: 코트·남 코트·행사 모두 같은 모양 (금액 상자 + 사람별 줄)
+  const s = settleOf(ev.courtFee, ev.ballPrice, ev.ballOwner, ev.names, club ? ev.entryFee : 0);
+  const amt = n => n ? won(n) : "–";
+  const box = rows => '<div class="ledger">' + rows + '</div>';
+  const line = (k, v, total) => '<div class="ln' + (total ? ' total' : '') + '"><span>' + k + '</span><span>' + v + '</span></div>';
+  let cost;
+  if (club) cost = box('<div class="ln total solo"><span>참가비 (1인)</span><span>' + amt(ev.entryFee) + '</span></div>');
+  else if (!ev.mine) cost = box('<div class="ln total solo"><span>내가 낼 돈</span><span>' + amt(ev.myDue) + '</span></div>');
+  else cost = box(line("코트비", amt(ev.courtFee)) +
+    (ev.ballPrice ? line("캔볼", won(ev.ballPrice) + (ev.ballOwner ? ' (' + who(ev.ballOwner) + ')' : '')) : '') +
+    line("1인 (" + s.n + "명)", s.total && s.n ? won(s.per) : "–", true));
+
+  let settle;
+  if (ev.mine) {
+    const others = ev.names.filter(n => n !== ME);
+    settle = others.length
+      ? '<div class="payrows">' + others.map(n => {
+          const ok = ev.paid.indexOf(n) >= 0, d = s.due(n);
+          return '<div class="payrow"><span class="nm">' + esc(n) + '</span><span class="amt">' + (s.total ? (d < 0 ? "돌려줄 돈 " + won(-d) : won(d)) : "") + '</span>' +
+            '<button type="button" data-vpay="' + esc(n) + '" aria-pressed="' + ok + '">' + (ok ? "받음" : "안 받음") + '</button></div>';
+        }).join("") + '</div>'
+      : box('<div class="note">정산할 사람이 없어서 정산 완료로 표시돼요.</div>');
+  } else {
+    // 남 코트·행사: 내가 보낼 돈 한 줄
+    const due = club ? ev.entryFee : ev.myDue;
+    settle = '<div class="payrows"><div class="payrow"><span class="nm">' + (ev.host ? who(ev.host) + "에게" : "내 몫") + '</span>' +
+      '<span class="amt">' + (due ? won(due) : "") + '</span>' +
+      '<button type="button" data-vmypay aria-pressed="' + ev.myPaid + '">' + (ev.myPaid ? "보냄" : "안 보냄") + '</button></div></div>';
+  }
+
+  el("v-body").innerHTML =
+    '<div class="kvs">' + kv + '</div>' +
+    '<div class="v-sec"><span class="lbl">참석자</span>' + (ppl ? '<div class="ppl">' + ppl + '</div>' : '<span class="hint">아직 없어요.</span>') + '</div>' +
+    '<div class="v-sec"><span class="lbl">비용</span>' + cost + '</div>' +
+    '<div class="v-sec"><span class="lbl">정산</span>' + settle + '</div>' +
+    (ev.memo ? '<div class="v-sec"><span class="lbl">메모</span><div class="v-memo">' + esc(ev.memo) + '</div></div>' : '');
+}
+el("v-body").addEventListener("click", e => {
+  const ev = findEvent(viewId);
+  if (!ev) return;
+  const b = e.target.closest("[data-vpay]");
+  if (b) { togglePaid(ev, b.dataset.vpay); return; }
+  if (e.target.closest("[data-vmypay]")) toggleMyPaid(ev);
+});
+el("v-edit").addEventListener("click", () => {
+  const ev = findEvent(viewId);
+  el("dlg-view").close();
+  if (ev) openForm(ev.date, ev);
+});
+document.addEventListener("click", e => { if (e.target.closest("[data-vclose]")) el("dlg-view").close(); });
+el("dlg-view").addEventListener("close", () => { viewId = null; });
+
+/* ---------- 등록·수정 폼 ---------- */
+let editingId = null;
+let F = null;   // 폼 상태: { type, capF, capM, capAuto, people:[{id,name,gender,at}], g, host, owner, paid:[] }
+
+function formIns() { return ordered(F.people).map(p => p.name); }
+
+function renderTypes() {
+  el("f-types").innerHTML = TYPES.map(t =>
+    '<button type="button" class="opt" data-type="' + t + '" aria-pressed="' + (F.type === t) + '">' + t + '</button>').join("");
+}
+function renderCaps() { el("f-capf").textContent = F.capF; el("f-capm").textContent = F.capM; }
+function renderPeople() {
+  const ins = ordered(F.people);
+  const g = p => '<button type="button" class="g" data-gt="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 성별 바꾸기">' + (p.gender === "M" ? "남" : "여") + '</button>';
+  const x = p => '<button type="button" class="rm" data-rm="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 빼기">✕</button>';
+  const open = F.capF + F.capM ? Math.max(0, F.capF + F.capM - ins.length) : 0;
+  el("f-people").innerHTML = ins.map(p => '<span class="person">' + esc(p.name) + g(p) + x(p) + '</span>').join("") +
+    '<span class="person open">빈자리</span>'.repeat(open);
+}
+/* 예약자·캔볼 가져오는 사람: 나 + 참석자 중에서 하나 (다시 누르면 해제) */
+function pickChips(boxId, key, value, icon) {
+  const names = [ME].concat(F.people.map(p => p.name).filter(n => n !== ME));
+  el(boxId).innerHTML = names.map(n =>
+    '<button type="button" class="opt" data-' + key + '="' + esc(n) + '" aria-pressed="' + (value === n) + '">' +
+    (n === ME && icon ? icon : '') + (n === ME ? "나" : esc(n)) + '</button>').join("");
+}
+function renderRoles() {
+  pickChips("f-host", "host", F.host, "");
+  pickChips("f-owner", "owner", F.owner, "");
+}
+function renderSettle() {
+  const mine = F.kind !== "club" && F.host === ME;
+  const entry = F.kind === "club";
+  const theirs = !entry && !mine;          // 남 코트: 내가 낼 돈만
+  const myDue = theirs ? num(el("f-due").value) : 0;
+  el("f-entry-box").hidden = !entry;
+  el("f-due-box").hidden = !theirs;
+  el("f-split-box").hidden = entry || theirs;
+  const ef = entry ? num(el("f-entry").value) : 0;
+  const fee = entry ? 0 : num(el("f-fee").value), bp = entry ? 0 : num(el("f-bprice").value);
+  const owner = F.owner;
+  const ins = formIns();
+  const s = settleOf(fee, bp, owner, ins, ef);
+  const showLedger = theirs ? false : entry ? ef > 0 : fee + bp > 0;
+  el("f-ledger").hidden = !showLedger;
+  let h = entry
+    ? '<div class="ln total" style="border-top: 0; margin-top: 0; padding-top: 0"><span>참가비 (1인)</span><span>' + won(ef) + '</span></div>' +
+      (s.n > 1 ? '<div class="note">' + s.n + '명 합계 ' + won(s.total) + '</div>' : '')
+    : '<div class="ln"><span>코트비</span><span>' + won(fee) + '</span></div>' +
+    '<div class="ln"><span>캔볼</span><span>' + won(bp) + (bp && owner ? ' (' + esc(owner) + ')' : '') + '</span></div>' +
+    '<div class="ln total"><span>1인 (' + s.n + '명)</span><span>' + (s.n && s.total ? won(s.per) : "–") + '</span></div>';
+  if (bp && owner && s.n && ins.indexOf(owner) >= 0) {
+    const d = s.due(owner);
+    h += '<div class="note">' + esc(owner) + '은(는) 캔볼 값을 빼고 ' + (d < 0 ? won(-d) + " 돌려받아요." : won(d) + " 내요.") + '</div>';
+  }
+  if (!entry) h += '<div class="note">참석 인원으로 나눠 10원 단위로 올려요.</div>';
+  el("f-ledger").innerHTML = h;
+
+  // 내 코트: 사람별 받을 돈 + 받음 체크 / 남 코트: 내 정산 완료 스위치
+  el("f-mypaid-row").hidden = mine;
+  el("f-payrows").hidden = !mine;
+  if (mine) {
+    const others = ins.filter(n => n !== ME);
+    el("f-payrows").innerHTML = others.map(n => {
+      const ok = F.paid.indexOf(n) >= 0, d = s.due(n);
+      return '<div class="payrow"><span class="nm">' + esc(n) + '</span><span class="amt">' + (s.total ? (d < 0 ? "돌려줄 돈 " + won(-d) : won(d)) : "") + '</span>' +
+        '<button type="button" data-paid="' + esc(n) + '" aria-pressed="' + ok + '">' + (ok ? "받음" : "안 받음") + '</button></div>';
+    }).join("");
+    el("f-payrows").hidden = !others.length;
+  } else {
+    const d = ins.indexOf(ME) >= 0 && s.total ? s.due(ME) : null;
+    el("f-mypaid-row").hidden = !F.host && !showLedger;
+    if (entry) el("f-mypaid-sub").textContent = (F.host ? F.host + "에게 " : "") + "참가비" + (ef ? " " + won(ef) + "을" : "를") + " 냈으면 켜요.";
+    else if (theirs) el("f-mypaid-sub").textContent = (F.host ? F.host + "에게 " : "예약자에게 ") + (myDue ? won(myDue) + "을" : "내 몫을") + " 보냈으면 켜요.";
+    else el("f-mypaid-sub").textContent = (F.host ? F.host + "에게 " : "예약자에게 ") +
+      (d === null ? "내 몫을 보냈으면 켜요." : d < 0 ? won(-d) + " 받을 차례예요. 받았으면 켜요." : "내 몫 " + won(d) + "을 보냈으면 켜요.");
+  }
+  // 보여 줄 게 없으면 정산 칸째로 숨긴다
+  el("f-settle").hidden = el("f-ledger").hidden && el("f-payrows").hidden && el("f-mypaid-row").hidden;
+}
+function renderKind() {
+  const club = F.kind === "club";
+  document.querySelectorAll("#f-kind [data-kind]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.kind === F.kind)));
+  el("f-tags").hidden = !club;
+  el("f-tags").innerHTML = CLUB_TAGS.map(t => '<button type="button" class="opt" data-tag="' + t + '" aria-pressed="' + (F.clubTag === t) + '">' + t + '</button>').join("");
+  el("f-host-lbl").textContent = club ? "주최" : "예약자";
+  el("f-host").hidden = club;
+  el("f-host-text").hidden = !club;
+  el("f-host-hint").textContent = club ? "참가비를 보낼 곳이에요." : "나를 고르면 내 코트예요. 참석자별로 정산 받았는지 체크해요.";
+  el("f-owner-fld").hidden = club;
+}
+function renderForm() { renderKind(); renderTypes(); renderCaps(); renderPeople(); renderRoles(); renderSettle(); renderGseg(); }
+
+function renderGseg() {
+  document.querySelectorAll(".gseg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.g === F.g)));
+}
+
+/* 새로 넣는 사람 성별: 남은 자리에 맞춘다 (여자 자리가 남으면 여, 아니면 남) */
+function nextGender() {
+  if (!F.capF && !F.capM) return "F";
+  const st = F.people;
+  const f = st.filter(p => p.gender === "F").length, m = st.filter(p => p.gender === "M").length;
+  if (f < F.capF) return "F";
+  if (m < F.capM) return "M";
+  return F.capF >= F.capM ? "F" : "M";
+}
+function addName(n, g) {
+  if (!F.people.some(p => p.name === n)) F.people.push({ id: uid(), name: n, gender: g || nextGender(), at: Date.now() });
+  F.g = nextGender();
+  renderPeople(); renderRoles(); renderSettle(); renderGseg();
+}
+function addPerson() {
+  const inp = el("f-person");
+  const n = str(inp.value);
+  if (!n) return;
+  addName(n, F.g);
+  inp.value = "";
+  inp.focus();
+}
+
+function openForm(dateKey, ev) {
+  editingId = ev ? ev.id : null;
+  el("f-title").textContent = ev ? "일정 수정" : "일정 등록";
+  el("f-submit").textContent = ev ? "저장" : "등록";
+  el("f-del").hidden = !ev;
+  el("f-err").hidden = true;
+  el("f-place").value = ev ? ev.place : "";
+  el("f-court").value = ev ? ev.court : "";
+  el("f-date").value = dateKey;
+  el("f-start").value = ev && ev.start ? ev.start : "20:00";
+  el("f-end").value = ev && ev.end ? ev.end : "22:00";
+  el("f-memo").value = ev ? ev.memo : "";
+  el("f-fee").value = ev && ev.courtFee ? ev.courtFee : "";
+  el("f-bprice").value = ev && ev.ballPrice ? ev.ballPrice : "";
+  el("f-entry").value = ev && ev.entryFee ? ev.entryFee : "";
+  el("f-due").value = ev && ev.myDue ? ev.myDue : "";
+  el("f-mypaid").checked = ev ? ev.myPaid : false;
+  el("f-person").value = "";
+  el("f-host-text").value = ev && ev.kind === "club" ? ev.host : "";
+  F = {
+    type: ev ? ev.type : "",
+    capF: ev ? ev.capF : 0, capM: ev ? ev.capM : 0, capAuto: !ev,
+    people: ev ? ev.participants.map(p => Object.assign({}, p)) : [{ id: uid(), name: ME, gender: ME_GENDER, at: Date.now() }],
+    host: ev ? (ev.mine ? ME : ev.host) : ME,
+    owner: ev ? ev.ballOwner : ME,
+    paid: ev ? ev.paid.slice() : [],
+    kind: ev ? ev.kind : "court",
+    clubTag: ev ? ev.clubTag : ""
+  };
+  F.g = nextGender();
+  renderForm();
+  el("dlg").showModal();
+}
+
+el("f-types").addEventListener("click", e => {
+  const b = e.target.closest("[data-type]");
+  if (!b) return;
+  F.type = F.type === b.dataset.type ? "" : b.dataset.type;
+  const preset = TYPE_PRESET[F.type];
+  if (preset && (F.capAuto || (!F.capF && !F.capM))) { F.capF = preset[0]; F.capM = preset[1]; F.capAuto = true; }
+  F.g = nextGender();
+  renderTypes(); renderCaps(); renderPeople(); renderSettle(); renderGseg();
+});
+document.querySelector(".caps").addEventListener("click", e => {
+  const b = e.target.closest("[data-cap]");
+  if (!b) return;
+  const g = b.dataset.cap[0], d = +b.dataset.cap.slice(1);
+  if (g === "F") F.capF = Math.max(0, Math.min(12, F.capF + d));
+  else F.capM = Math.max(0, Math.min(12, F.capM + d));
+  F.capAuto = false;
+  F.g = nextGender();
+  renderCaps(); renderPeople(); renderSettle(); renderGseg();
+});
+el("f-add").addEventListener("click", addPerson);
+document.querySelector(".gseg").addEventListener("click", e => {
+  const b = e.target.closest("[data-g]");
+  if (!b) return;
+  F.g = b.dataset.g;
+  renderGseg();
+});
+el("f-person").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); addPerson(); }
+});
+function onPeopleClick(e) {
+  const gt = e.target.closest("[data-gt]");
+  if (gt) {
+    const p = F.people.find(x => x.id === gt.dataset.gt);
+    if (p) p.gender = p.gender === "M" ? "F" : "M";
+    renderPeople(); renderSettle();
+    return;
+  }
+  const b = e.target.closest("[data-rm]");
+  if (!b) return;
+  const gone = F.people.find(p => p.id === b.dataset.rm);
+  F.people = F.people.filter(p => p.id !== b.dataset.rm);
+  if (gone) {
+    F.paid = F.paid.filter(n => n !== gone.name);
+    if (F.host === gone.name) F.host = "";
+    if (F.owner === gone.name) F.owner = "";
+  }
+  F.g = nextGender();
+  renderPeople(); renderRoles(); renderSettle(); renderGseg();
+}
+el("f-people").addEventListener("click", onPeopleClick);
+el("f-host").addEventListener("click", e => {
+  const b = e.target.closest("[data-host]");
+  if (!b) return;
+  F.host = F.host === b.dataset.host ? "" : b.dataset.host;
+  renderRoles(); renderSettle();
+});
+el("f-owner").addEventListener("click", e => {
+  const b = e.target.closest("[data-owner]");
+  if (!b) return;
+  F.owner = F.owner === b.dataset.owner ? "" : b.dataset.owner;
+  renderRoles(); renderSettle();
+});
+el("f-payrows").addEventListener("click", e => {
+  const b = e.target.closest("[data-paid]");
+  if (!b) return;
+  const n = b.dataset.paid, k = F.paid.indexOf(n);
+  if (k >= 0) F.paid.splice(k, 1); else F.paid.push(n);
+  renderSettle();
+});
+["f-fee", "f-bprice", "f-entry", "f-due"].forEach(id => el(id).addEventListener("input", renderSettle));
+el("f-host-text").addEventListener("input", () => { F.host = str(el("f-host-text").value); renderSettle(); });
+el("f-kind").addEventListener("click", e => {
+  const b = e.target.closest("[data-kind]");
+  if (!b || F.kind === b.dataset.kind) return;
+  F.kind = b.dataset.kind;
+  // 클럽은 남이 연 자리: 주최·캔볼에서 '나'를 뺀다. 코트로 돌아오면 다시 나로
+  if (F.kind === "club") { if (F.host === ME) F.host = ""; F.owner = ""; el("f-host-text").value = F.host; }
+  else { F.host = ME; if (!F.owner) F.owner = ME; }
+  renderKind(); renderRoles(); renderSettle();
+});
+el("f-tags").addEventListener("click", e => {
+  const b = e.target.closest("[data-tag]");
+  if (!b) return;
+  F.clubTag = F.clubTag === b.dataset.tag ? "" : b.dataset.tag;
+  renderKind();
+});
+document.addEventListener("click", e => { if (e.target.closest("[data-close]")) el("dlg").close(); });
+
+el("f-del").addEventListener("click", () => {
+  const id = editingId;
+  if (!id) return;
+  const b = el("f-del");
+  if (b.dataset.confirm !== "1") {        // 한 번 더 눌러야 지운다
+    b.dataset.confirm = "1";
+    b.textContent = "정말 삭제";
+    setTimeout(() => { b.dataset.confirm = ""; b.textContent = "삭제"; }, 3000);
+    return;
+  }
+  b.dataset.confirm = ""; b.textContent = "삭제";
+  el("dlg").close();
+  deleteDoc(doc(EVENTS, id))
+    .then(() => toast("일정을 지웠어요."))
+    .catch(err => toast("삭제하지 못했어요. " + errText(err), true));
+});
+
+el("form").addEventListener("submit", e => {
+  e.preventDefault();
+  if (str(el("f-person").value)) addPerson();   // 입력만 하고 추가를 안 눌렀어도 넣는다
+  const place = str(el("f-place").value);
+  const date = el("f-date").value;
+  const showErr = (m, f) => { const x = el("f-err"); x.textContent = m; x.hidden = false; if (f) el(f).focus(); };
+  if (!place) return showErr("테니스장을 적어 주세요.", "f-place");
+  if (!date) return showErr("날짜를 골라 주세요.", "f-date");
+
+  const club = F.kind === "club";
+  if (club) F.host = str(el("f-host-text").value);
+  const mine = !club && F.host === ME, ball = !club && F.owner === ME;
+  const names = F.people.map(p => p.name);
+  const payload = {
+    date: date, start: el("f-start").value || "", end: el("f-end").value || "",
+    place: place, court: str(el("f-court").value), gameType: F.type,
+    capF: F.capF, capM: F.capM, capacity: F.capF + F.capM,
+    memo: str(el("f-memo").value),
+    courtFee: club || !mine ? 0 : num(el("f-fee").value), ballPrice: club || !mine ? 0 : num(el("f-bprice").value),
+    myDue: !club && !mine ? num(el("f-due").value) : 0,
+    kind: F.kind, clubTag: club ? F.clubTag : "", feeMode: club ? "entry" : "split", entryFee: club ? num(el("f-entry").value) : 0,
+    mine: mine, host: club ? F.host : mine ? ME : (names.indexOf(F.host) >= 0 ? F.host : ""),
+    ball: ball, ballOwner: club ? "" : ball ? ME : (names.indexOf(F.owner) >= 0 ? F.owner : ""),
+    participants: F.people.map(p => ({ id: p.id, name: p.name, gender: p.gender || "", at: p.at || Date.now() })),
+    paid: F.paid.filter(n => names.indexOf(n) >= 0),
+    myPaid: el("f-mypaid").checked
+  };
+
+  const old = editingId ? findEvent(editingId) : null;
+  el("dlg").close();
+  selDate = date;
+  const d = parse(date);
+  view = { y: d.getFullYear(), m: d.getMonth() };
+  render();
+
+  if (old) {
+    updateDoc(doc(EVENTS, old.id), payload)
+      .then(() => toast("일정을 저장했어요."))
+      .catch(err => toast("저장하지 못했어요. " + errText(err), true));
+  } else {
+    payload.createdAt = Date.now();
+    setDoc(doc(EVENTS, uid()), payload)
+      .then(() => toast("일정을 등록했어요."))
+      .catch(err => toast("등록하지 못했어요. " + errText(err), true));
+  }
+});
+
+/* 휴대폰 주소창·키보드 때문에 100vh 가 실제 화면보다 길다. 실제로 보이는 높이를 잰다 */
+(function trackAppHeight() {
+  function set() {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty("--app-h", Math.round(h) + "px");
+  }
+  set();
+  window.addEventListener("resize", set);
+  if (window.visualViewport) window.visualViewport.addEventListener("resize", set);
+})();
+
+/* 자정을 넘기거나 오래 켜 두었다가 돌아오면 '오늘'을 다시 맞춘다 */
+document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+
+render();
+</script>
+</body>
+</html>
